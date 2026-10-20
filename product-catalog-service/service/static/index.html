@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Product Catalog Administration</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem auto; max-width: 900px; }
+    label { display: inline-block; width: 110px; margin: 4px 0; }
+    input, select { padding: 4px; width: 260px; }
+    button { margin: 8px 6px 8px 0; padding: 6px 14px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+    th, td { border: 1px solid #ccc; padding: 4px 8px; text-align: left; }
+    #flash_message { min-height: 1.5rem; color: #0a6b2d; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Product Catalog Administration</h1>
+  <div id="flash_message"></div>
+
+  <div>
+    <div><label for="product_id">Id</label><input type="text" id="product_id"></div>
+    <div><label for="product_name">Name</label><input type="text" id="product_name"></div>
+    <div><label for="product_description">Description</label><input type="text" id="product_description"></div>
+    <div><label for="product_price">Price</label><input type="text" id="product_price"></div>
+    <div><label for="product_available">Available</label>
+      <select id="product_available">
+        <option value=""></option>
+        <option value="true">True</option>
+        <option value="false">False</option>
+      </select></div>
+    <div><label for="product_category">Category</label>
+      <select id="product_category">
+        <option value=""></option>
+        <option value="UNKNOWN">Unknown</option>
+        <option value="CLOTHS">Cloths</option>
+        <option value="FOOD">Food</option>
+        <option value="HOUSEWARES">Housewares</option>
+        <option value="AUTOMOTIVE">Automotive</option>
+        <option value="TOOLS">Tools</option>
+      </select></div>
+  </div>
+
+  <div>
+    <button id="search-btn">Search</button>
+    <button id="clear-btn">Clear</button>
+    <button id="create-btn">Create</button>
+    <button id="retrieve-btn">Retrieve</button>
+    <button id="update-btn">Update</button>
+    <button id="delete-btn">Delete</button>
+  </div>
+
+  <table id="search_results">
+    <thead>
+      <tr><th>ID</th><th>Name</th><th>Description</th><th>Price</th><th>Available</th><th>Category</th></tr>
+    </thead>
+    <tbody id="results_body"></tbody>
+  </table>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var textFields = ["product_id", "product_name", "product_description", "product_price"];
+
+  function flash(message) { $("flash_message").textContent = message; }
+
+  function clearForm() {
+    textFields.forEach(function (id) { $(id).value = ""; });
+    $("product_available").value = "";
+    $("product_category").value = "";
+  }
+
+  function fillForm(p) {
+    $("product_id").value = p.id;
+    $("product_name").value = p.name;
+    $("product_description").value = p.description;
+    $("product_price").value = p.price;
+    $("product_available").value = String(p.available);
+    $("product_category").value = p.category;
+  }
+
+  function readForm() {
+    return {
+      name: $("product_name").value,
+      description: $("product_description").value,
+      price: $("product_price").value,
+      available: $("product_available").value === "true",
+      category: $("product_category").value || "UNKNOWN"
+    };
+  }
+
+  function renderResults(products) {
+    var body = $("results_body");
+    body.innerHTML = "";
+    products.forEach(function (p) {
+      var row = document.createElement("tr");
+      [p.id, p.name, p.description, p.price, p.available, p.category].forEach(function (v) {
+        var cell = document.createElement("td");
+        cell.textContent = v;
+        row.appendChild(cell);
+      });
+      body.appendChild(row);
+    });
+  }
+
+  async function call(method, url, body) {
+    var options = { method: method, headers: {} };
+    if (body !== undefined) {
+      options.headers["Content-Type"] = "application/json";
+      options.body = JSON.stringify(body);
+    }
+    var response = await fetch(url, options);
+    var data = null;
+    var text = await response.text();
+    if (text) { try { data = JSON.parse(text); } catch (e) { data = null; } }
+    return { ok: response.ok, status: response.status, data: data };
+  }
+
+  function errorText(res) {
+    return (res.data && res.data.message) ? res.data.message : "Server error!";
+  }
+
+  $("clear-btn").addEventListener("click", function () {
+    flash("");
+    clearForm();
+    $("results_body").innerHTML = "";
+  });
+
+  $("create-btn").addEventListener("click", async function () {
+    flash("");
+    var res = await call("POST", "/products", readForm());
+    if (res.ok) { fillForm(res.data); flash("Success"); } else { flash(errorText(res)); }
+  });
+
+  $("retrieve-btn").addEventListener("click", async function () {
+    flash("");
+    var id = $("product_id").value;
+    var res = await call("GET", "/products/" + encodeURIComponent(id));
+    if (res.ok) { fillForm(res.data); flash("Success"); } else { flash(errorText(res)); }
+  });
+
+  $("update-btn").addEventListener("click", async function () {
+    flash("");
+    var id = $("product_id").value;
+    var res = await call("PUT", "/products/" + encodeURIComponent(id), readForm());
+    if (res.ok) { fillForm(res.data); flash("Success"); } else { flash(errorText(res)); }
+  });
+
+  $("delete-btn").addEventListener("click", async function () {
+    flash("");
+    var id = $("product_id").value;
+    var res = await call("DELETE", "/products/" + encodeURIComponent(id));
+    if (res.ok) { clearForm(); flash("Product has been Deleted!"); } else { flash(errorText(res)); }
+  });
+
+  $("search-btn").addEventListener("click", async function () {
+    flash("");
+    var params = [];
+    var name = $("product_name").value;
+    var category = $("product_category").value;
+    var available = $("product_available").value;
+    if (name) { params.push("name=" + encodeURIComponent(name)); }
+    if (category) { params.push("category=" + encodeURIComponent(category)); }
+    if (available) { params.push("available=" + encodeURIComponent(available)); }
+    var res = await call("GET", "/products" + (params.length ? "?" + params.join("&") : ""));
+    if (res.ok) {
+      renderResults(res.data);
+      if (res.data.length > 0) { fillForm(res.data[0]); }
+      flash("Success");
+    } else {
+      flash(errorText(res));
+    }
+  });
+})();
+</script>
+</body>
+</html>

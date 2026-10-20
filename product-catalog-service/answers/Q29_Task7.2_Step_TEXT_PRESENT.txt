@@ -1,0 +1,11 @@
+from behave import then
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+
+
+@then('I should see "{name}" in the results')
+def step_impl(context, name):
+    found = WebDriverWait(context.driver, context.wait_seconds).until(
+        EC.text_to_be_present_in_element((By.ID, "search_results"), name))
+    assert found

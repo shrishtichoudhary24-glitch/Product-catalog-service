@@ -1,0 +1,8 @@
+from behave import then
+from selenium.webdriver.common.by import By
+
+
+@then('I should not see "{name}" in the results')
+def step_impl(context, name):
+    element = context.driver.find_element(By.ID, "search_results")
+    assert name not in element.text
